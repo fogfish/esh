@@ -1,0 +1,17 @@
+{application, esh,
+   [
+      {description, "erlang to shell binding"},
+      {vsn,         "0.0.0"},
+      {modules,     [
+         esh,
+         esh_process
+      ]},
+      {registered,  []},
+      {applications,[
+         kernel,
+         stdlib
+      ]},
+      {env, []}
+   ]
+}.  
+
