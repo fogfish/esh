@@ -85,8 +85,9 @@ close(Pid) ->
 %% run shell script
 %% Options
 %%    {timeout, integer()} - time to wait for script i/o (default infinity)
-%%    {output, function()} - output mapper function (default identity)
-%%    return_on_error      - return script output 
+%%    {output,  function()}- output mapper function (default identity)
+%%    silent               - return status code only
+%%    verbose              - return script output 
 -spec(run/1 :: (script()) -> {ok, any()} | {error, any()}).
 -spec(run/2 :: (script(), list()) -> {ok, any()} | {error, any()}).
 -spec(run/3 :: (script(), list(), list()) -> {ok, any()} | {error, any()}).
@@ -114,7 +115,7 @@ do_run(Fun, Script, Args, Opts) ->
 			pipe:bind(a, Pid, self()),
 			pipe:send(Pid, run_once),
 			run_loop(
-				proplists:get_value(return_on_error, Opts),
+				Opts,
 				proplists:get_value(timeout, Opts, infinity),
 				proplists:get_value(output,  Opts, fun(X) -> X end),
 				[]
@@ -125,17 +126,18 @@ do_run(Fun, Script, Args, Opts) ->
 
 %%
 %%
-run_loop(Return, Timeout, Fun, Acc) ->
+run_loop(Opts, Timeout, Fun, Acc) ->
 	case pipe:recv(Timeout) of
 		{eof, 0}    ->
-			{ok, lists:reverse(Acc)};
+			case proplists:get_value(silent, Opts) of
+				true -> ok;
+				_    -> {ok, lists:reverse(Acc)}
+			end;
 		{eof, Code} ->
-			case Return of
+			case proplists:get_value(verbose, Opts) of
 				true -> {error, lists:reverse(Acc)};
 				_    -> {error, Code}
 			end;
 		Msg when is_binary(Msg) ->
-			run_loop(Return, Timeout, Fun, [Fun(Msg) | Acc])
+			run_loop(Opts, Timeout, Fun, [Fun(Msg) | Acc])
 	end.
-
-
