@@ -43,7 +43,7 @@
 %% internal state
 -record(fsm, {
 	script   = undefined :: list(),
-	args     = undefined :: list(),   %% command line
+	opts     = undefined :: list(),   %% port opts
 	port     = undefined :: any(),    %% shell script port
 	pid      = undefined :: list(),   %% unix process
    longlive = true      :: boolean() %% long live port
@@ -51,15 +51,15 @@
 
 %%
 %%
-start(Script, Args) ->
-   pipe:start(?MODULE, [Script, Args], []).
-start(Name, Script, Args) ->
-   pipe:start({local, Name}, ?MODULE, [Script, Args], []).
+start(Script, Opts) ->
+   pipe:start(?MODULE, [Script, Opts], []).
+start(Name, Script, Opts) ->
+   pipe:start({local, Name}, ?MODULE, [Script, Opts], []).
 
-start_link(Cmd, Args) ->
-   pipe:start_link(?MODULE, [Cmd, Args], []).
-start_link(Name, Cmd, Args) ->
-   pipe:start_link({local, Name}, ?MODULE, [Cmd, Args], []).
+start_link(Cmd, Opts) ->
+   pipe:start_link(?MODULE, [Cmd, Opts], []).
+start_link(Name, Cmd, Opts) ->
+   pipe:start_link({local, Name}, ?MODULE, [Cmd, Opts], []).
 
 %%%------------------------------------------------------------------
 %%%
@@ -67,12 +67,12 @@ start_link(Name, Cmd, Args) ->
 %%%
 %%%------------------------------------------------------------------   
 
-init([Script, Args]) ->
+init([Script, Opts]) ->
    erlang:process_flag(trap_exit, true),
    {ok, loop, 
    	#fsm{
    		script = find_script(Script),
-   		args   = string:join(Args, " ")
+   		opts   = Opts 
    	}
    }.
 
@@ -202,15 +202,30 @@ kill_script(#fsm{pid=Pid}) ->
 
 %%
 %%
-spawn_script(#fsm{script=Script, args=Args}) ->
+spawn_script(#fsm{script=Script, opts=Opts}) ->
    Shell = os:find_executable(sh),
-   Cmd   = io_lib:format(?BOOTSTRAP, [Script, Args]),
+   Cmd   = case lists:keyfind(args, 1, Opts) of
+      {args, Args} -> io_lib:format(?BOOTSTRAP, [Script, string:join(Args, " ")]);
+      _            -> io_lib:format(?BOOTSTRAP, [Script, ""])
+   end,
    erlang:open_port(
       {spawn_executable, Shell},
       [
          {args, ["-c", Cmd]},
          {line, ?IOLINE}, binary, stream,
          exit_status, use_stdio, stderr_to_stdout, hide
-      ]
+      ] ++ port_opts(Opts)
    ).
+
+port_opts(Opts) ->
+   port_opts(Opts, []).
+port_opts([{cd,  _}=X | Opts], Acc) ->
+   port_opts(Opts, [X | Acc]);
+port_opts([{env, _}=X | Opts], Acc) ->
+   port_opts(Opts, [X | Acc]);
+port_opts([_ | Opts], Acc) ->
+   port_opts(Opts, Acc);
+port_opts([], Acc) ->
+   Acc.
+
 

@@ -28,10 +28,8 @@
 
 	run/1,
 	run/2,
-	run/3,
 	run_link/1,
-	run_link/2,
-	run_link/3
+	run_link/2
 ]).
 
 -type(script() :: atom() | list() | binary()).
@@ -47,23 +45,23 @@
 
 spawn(Script) ->
 	esh:spawn(Script, []).
-spawn(Script, Args) ->
-	do_spawn(start, Script, Args).
-spawn(Name, Script, Args) ->
-	do_spawn(start, Name, Script, Args).
+spawn(Script, Opts) ->
+	do_spawn(start, Script, Opts).
+spawn(Name, Script, Opts) ->
+	do_spawn(start, Name, Script, Opts).
 
 spawn_link(Script) ->
 	esh:spawn_link(Script, []).
-spawn_link(Script, Args) ->
-	do_spawn(start_link, Script, Args).
-spawn_link(Name, Script, Args) ->
-	do_spawn(start_link, Name, Script, Args).
+spawn_link(Script, Opts) ->
+	do_spawn(start_link, Script, Opts).
+spawn_link(Name, Script, Opts) ->
+	do_spawn(start_link, Name, Script, Opts).
 
-do_spawn(Fun, Script, Args) ->
-	do_bind(esh_script:Fun(Script, Args)).
+do_spawn(Fun, Script, Opts) ->
+	do_bind(esh_script:Fun(Script, Opts)).
 
-do_spawn(Fun, Name, Script, Args) ->
-	do_bind(esh_script:Fun(Name, Script, Args)).
+do_spawn(Fun, Name, Script, Opts) ->
+	do_bind(esh_script:Fun(Name, Script, Opts)).
 
 do_bind({ok, Pid}) ->
 	pipe:bind(a, Pid, self()),
@@ -90,27 +88,21 @@ close(Pid) ->
 %%    verbose              - return script output 
 -spec(run/1 :: (script()) -> {ok, any()} | {error, any()}).
 -spec(run/2 :: (script(), list()) -> {ok, any()} | {error, any()}).
--spec(run/3 :: (script(), list(), list()) -> {ok, any()} | {error, any()}).
 -spec(run_link/1 :: (script()) -> {ok, any()} | {error, any()}).
 -spec(run_link/2 :: (script(), list()) -> {ok, any()} | {error, any()}).
--spec(run_link/3 :: (script(), list(), list()) -> {ok, any()} | {error, any()}).
 
 run(Script) ->
-	run(Script, [], []).
-run(Script, Args) ->
-	run(Script, Args, []).
-run(Script, Args, Opts) ->
-	do_run(start, Script, Args, Opts).
+	run(Script, []).
+run(Script, Opts) ->
+	do_run(start, Script, Opts).
 
 run_link(Script) ->
-	run_link(Script, [], []).
-run_link(Script, Args) ->
-	run(Script, Args, []).
-run_link(Script, Args, Opts) ->
-	do_run(start_link, Script, Args, Opts).
+	run_link(Script, []).
+run_link(Script, Opts) ->
+	do_run(start_link, Script, Opts).
 
-do_run(Fun, Script, Args, Opts) ->
-	case esh_script:Fun(Script, Args) of
+do_run(Fun, Script, Opts) ->
+	case esh_script:Fun(Script, Opts) of
 		{ok, Pid} ->
 			pipe:bind(a, Pid, self()),
 			pipe:send(Pid, run_once),
