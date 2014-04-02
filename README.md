@@ -32,7 +32,7 @@ The library provides
 ``` 
 
 ```erlang
-	{ok, Pid} = esh:run("sh echo.sh").
+	{ok, Pid} = esh:spawn("sh echo.sh").
 
    ...
 

@@ -27,14 +27,26 @@
 	init/1,
 	free/2,
 	ioctl/2,
+   idle/3,
+   boot/3,
 	loop/3
 ]).
 
+%%
 %% script bootstrap code
--define(BOOTSTRAP, "
-   echo \"pid $$\";
-   exec ~s ~s
-").
+-define(BOOTSTRAP, "echo \"pid $$\"; exec ~s ~s").
+
+-define(PORT(X), [
+   {args, ["-c", X]}
+  ,binary
+  ,stream
+  ,exit_status
+  ,use_stdio
+  ,stderr_to_stdout
+  ,hide
+]).
+
+
 
 %% line size
 -define(IOLINE,  16 * 1024).
@@ -42,9 +54,10 @@
 %%
 %% internal state
 -record(fsm, {
-	script   = undefined :: list(),
+	script   = undefined :: list(),   %% script to execute
+   args     = undefined :: list(),   %% script arguments 
 	opts     = undefined :: list(),   %% port opts
-	port     = undefined :: any(),    %% shell script port
+	port     = undefined :: any(),    %% erlang port
 	pid      = undefined :: list(),   %% unix process
    longlive = true      :: boolean() %% long live port
 }).
@@ -69,10 +82,11 @@ start_link(Name, Cmd, Opts) ->
 
 init([Script, Opts]) ->
    erlang:process_flag(trap_exit, true),
-   {ok, loop, 
+   {ok, idle, 
    	#fsm{
    		script = find_script(Script),
-   		opts   = Opts 
+         args   = make_args(lists:keyfind(args, 1, Opts)),
+   		opts   = port_opts(Opts) 
    	}
    }.
 
@@ -81,6 +95,12 @@ free(_, S) ->
 	_ = kill_script(S),
 	ok.
 
+ioctl(script, #fsm{}=S) ->
+   S#fsm.script;
+ioctl(args,   #fsm{}=S) ->
+   S#fsm.args;
+ioctl({args, X}, #fsm{}=S) ->
+   S#fsm{args=make_args(X)};
 ioctl(_, _) ->
 	throw(not_supported).
 
@@ -92,10 +112,49 @@ ioctl(_, _) ->
 %%%------------------------------------------------------------------   
 
 %%
-%% inbound
+%% idle - script is not running
+idle(run, _Pipe, #fsm{}=S) ->
+   {next_state, boot, S#fsm{port = spawn_script(S)}};
+
+idle(run_once, _Pipe, #fsm{}=S) ->
+   {next_state, boot, S#fsm{port = spawn_script(S), longlive = false}};
+
+idle(Msg, _Pipe, #fsm{}=S)
+ when is_binary(Msg) ->
+   Port = spawn_script(S),
+   _ = erlang:port_command(Port, Msg),
+   {next_state, boot, S#fsm{port = Port}};
+
+idle(close, _Pipe, S) ->
+   {stop, normal, S};
+
+idle({'EXIT', _, _}, _Pipe, S) ->
+   %% ignore port exit command
+   {next_state, idle, S};
+
+idle(Msg, _Pipe, S) ->
+   error_logger:warning_msg("esh [idle]: unknown message ~p~n", [Msg]),
+   {next_state, idle, S}.
+
+%%
+%% boot - script is booting up 
+%% the first required message is pid of unix process
+boot({_Port, {data, <<$p, $i, $d, $ , Pid/binary>>}}, _Pipe, #fsm{}=S) ->
+   {next_state, loop, S#fsm{pid = binary_to_list(Pid)}};
+
+boot(close, _Pipe, S) ->
+   {stop, normal, S};
+
+boot(Msg, _Pipe, S) ->
+   error_logger:warning_msg("esh [boot]: unknown message ~p~n", [Msg]),
+   {next_state, boot, S}.
+
+
+%%
+%% loop - script is running i/o
 loop({_Port, {exit_status, Code}}, Pipe, #fsm{longlive=true}=S) ->
    pipe:a(Pipe, {eof, Code}),
-   {next_state, loop, 
+   {next_state, idle, 
       S#fsm{
          port = undefined,
          pid  = undefined
@@ -106,57 +165,21 @@ loop({_Port, {exit_status, Code}}, Pipe, S) ->
 	pipe:a(Pipe, {eof, Code}),
    {stop, normal, S};
 
-loop({_Port, {data, {eol, <<$p,$i, $d, $ , Pid/binary>>}}}, _Pipe, #fsm{pid=undefined}=S) ->
-	{next_state, loop, S#fsm{pid = binary_to_list(Pid)}};
-
-loop({_Port, {data, {noeol, Line}}}, Pipe, S) ->
-	pipe:a(Pipe, Line),
+loop({_Port, {data, Pckt}}, Pipe, S) ->
+	pipe:a(Pipe, Pckt),
    {next_state, loop, S};
 
-loop({_Port, {data, {eol, Line}}}, Pipe, S) ->
-	pipe:a(Pipe, <<Line/binary, $\n>>),
-   {next_state, loop, S};
-
-%%
-%% outbound
 loop(close, _Pipe, S) ->
    {stop, normal, S};
-
-loop(Msg, _Pipe, #fsm{port=undefined}=S)
- when is_binary(Msg) ->
-   Port = spawn_script(S),
-   _ = erlang:port_command(Port, Msg),
-   {next_state, loop, 
-      S#fsm{
-         port = Port,
-         pid  = undefined
-      }
-   };
 
 loop(Msg, _Pipe, #fsm{}=S)
  when is_binary(Msg) ->
    _ = erlang:port_command(S#fsm.port, Msg),
    {next_state, loop, S};
 
-loop(run, _Pipe, #fsm{port=undefined}=S) ->
-   {next_state, loop, 
-      S#fsm{
-         port = spawn_script(S),
-         pid  = undefined
-      }
-   };
-
-loop(run_once, _Pipe, #fsm{port=undefined}=S) ->
-   {next_state, loop, 
-      S#fsm{
-         port = spawn_script(S),
-         pid  = undefined,
-         longlive = false
-      }
-   };
-
-loop(_, _Pipe, #fsm{}=S) ->
-   {next_state, loop, S}.
+loop(Msg, _Pipe, S) ->
+   error_logger:warning_msg("esh [loop]: unknown message ~p~n", [Msg]),
+   {next_state, boot, S}.
 
 
 %%%------------------------------------------------------------------
@@ -180,6 +203,31 @@ find_script(Script)
  	Script.
 
 %%
+%% make script arguments
+make_args(false) ->
+   "";
+make_args(undefined) ->
+   "";
+make_args({args, X}) ->
+   X;
+make_args(X)
+ when is_list(X) ->
+   X.
+
+%%
+%% make port options
+port_opts(Opts) ->
+   port_opts(Opts, []).
+port_opts([{cd,  _}=X | Opts], Acc) ->
+   port_opts(Opts, [X | Acc]);
+port_opts([{env, _}=X | Opts], Acc) ->
+   port_opts(Opts, [X | Acc]);
+port_opts([_ | Opts], Acc) ->
+   port_opts(Opts, Acc);
+port_opts([], Acc) ->
+   Acc.
+
+%%
 %%
 close_port(#fsm{port=undefined}) ->
 	ok;
@@ -199,33 +247,14 @@ kill_script(#fsm{pid=Pid}) ->
    os:cmd("pkill -9 -P " ++ Pid),
    os:cmd("kill -9 " ++ Pid).
 
-
 %%
 %%
-spawn_script(#fsm{script=Script, opts=Opts}) ->
+spawn_script(#fsm{}=S) ->
    Shell = os:find_executable(sh),
-   Cmd   = case lists:keyfind(args, 1, Opts) of
-      {args, Args} -> io_lib:format(?BOOTSTRAP, [Script, string:join(Args, " ")]);
-      _            -> io_lib:format(?BOOTSTRAP, [Script, ""])
-   end,
-   erlang:open_port(
-      {spawn_executable, Shell},
-      [
-         {args, ["-c", Cmd]},
-         {line, ?IOLINE}, binary, stream,
-         exit_status, use_stdio, stderr_to_stdout, hide
-      ] ++ port_opts(Opts)
-   ).
+   Cmd   = lists:flatten(
+      io_lib:format(?BOOTSTRAP, [S#fsm.script, string:join(S#fsm.args, " ")])
+   ),
+   erlang:open_port({spawn_executable, Shell}, ?PORT(Cmd) ++ S#fsm.opts).
 
-port_opts(Opts) ->
-   port_opts(Opts, []).
-port_opts([{cd,  _}=X | Opts], Acc) ->
-   port_opts(Opts, [X | Acc]);
-port_opts([{env, _}=X | Opts], Acc) ->
-   port_opts(Opts, [X | Acc]);
-port_opts([_ | Opts], Acc) ->
-   port_opts(Opts, Acc);
-port_opts([], Acc) ->
-   Acc.
 
 
