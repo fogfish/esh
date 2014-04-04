@@ -153,7 +153,7 @@ boot(Msg, _Pipe, S) ->
 %%
 %% loop - script is running i/o
 loop({_Port, {exit_status, Code}}, Pipe, #fsm{longlive=true}=S) ->
-   pipe:a(Pipe, {eof, Code}),
+   pipe:a(Pipe, {esh, self(), {eof, Code}}),
    {next_state, idle, 
       S#fsm{
          port = undefined,
@@ -162,11 +162,11 @@ loop({_Port, {exit_status, Code}}, Pipe, #fsm{longlive=true}=S) ->
    };
 
 loop({_Port, {exit_status, Code}}, Pipe, S) ->
-	pipe:a(Pipe, {eof, Code}),
+	pipe:a(Pipe, {esh, self(), {eof, Code}}),
    {stop, normal, S};
 
 loop({_Port, {data, Pckt}}, Pipe, S) ->
-	pipe:a(Pipe, Pckt),
+	pipe:a(Pipe, {esh, self(), Pckt}),
    {next_state, loop, S};
 
 loop(close, _Pipe, S) ->

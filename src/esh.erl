@@ -36,6 +36,9 @@
 
 %%
 %% spawn shell scripts port and bind it to current process
+%% Options
+%%    nobind - no auto binding, the process is not bound to process
+%%    norun  - do not execute process 
 -spec(spawn/1 :: (script()) -> {ok, any()} | {error, any()}).
 -spec(spawn/2 :: (script(), list()) -> {ok, any()} | {error, any()}).
 -spec(spawn/3 :: (atom(), script(), list()) -> {ok, any()} | {error, any()}).
@@ -58,16 +61,31 @@ spawn_link(Name, Script, Opts) ->
 	do_spawn(start_link, Name, Script, Opts).
 
 do_spawn(Fun, Script, Opts) ->
-	do_bind(esh_script:Fun(Script, Opts)).
+   case proplists:get_value(nobind, Opts) of
+      true ->
+         esh_script:Fun(Script, Opts);
+      _    ->
+         do_bind(esh_script:Fun(Script, Opts), Opts)
+   end.
 
 do_spawn(Fun, Name, Script, Opts) ->
-	do_bind(esh_script:Fun(Name, Script, Opts)).
+   case proplists:get_value(nobind, Opts) of
+      true ->
+         esh_script:Fun(Name, Script, Opts);
+      _    ->
+      	do_bind(esh_script:Fun(Name, Script, Opts), Opts)
+   end.
 
-do_bind({ok, Pid}) ->
+do_bind({ok, Pid}, Opts) ->
 	pipe:bind(a, Pid, self()),
-	pipe:send(Pid, run),
+   case proplists:get_value(norun, Opts) of
+      true ->
+         ok;
+      _    ->
+	     pipe:send(Pid, run)
+   end,
 	{ok, Pid};
-do_bind(Error) ->
+do_bind(Error, _Opts) ->
 	Error.
 
 %%
@@ -120,16 +138,16 @@ do_run(Fun, Script, Opts) ->
 %%
 run_loop(Opts, Timeout, Fun, Acc) ->
 	case pipe:recv(Timeout) of
-		{eof, 0}    ->
+		{esh, _, {eof, 0}}    ->
 			case proplists:get_value(silent, Opts) of
 				true -> ok;
 				_    -> {ok, lists:reverse(Acc)}
 			end;
-		{eof, Code} ->
+		{esh, _, {eof, Code}} ->
 			case proplists:get_value(verbose, Opts) of
 				true -> {error, lists:reverse(Acc)};
 				_    -> {error, Code}
 			end;
-		Msg when is_binary(Msg) ->
+		{esh, _, Msg} when is_binary(Msg) ->
 			run_loop(Opts, Timeout, Fun, [Fun(Msg) | Acc])
 	end.
