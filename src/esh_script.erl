@@ -19,17 +19,17 @@
 -behaviour(pipe).
 
 -export([
-	start/2,
-	start/3,
-	start_link/2,
-	start_link/3,
+   start/2,
+   start/3,
+   start_link/2,
+   start_link/3,
 
-	init/1,
-	free/2,
-	ioctl/2,
+   init/1,
+   free/2,
+   ioctl/2,
    idle/3,
    boot/3,
-	loop/3
+   loop/3
 ]).
 
 %%
@@ -54,11 +54,11 @@
 %%
 %% internal state
 -record(fsm, {
-	script   = undefined :: list(),   %% script to execute
+   script   = undefined :: list(),   %% script to execute
    args     = undefined :: list(),   %% script arguments 
-	opts     = undefined :: list(),   %% port opts
-	port     = undefined :: any(),    %% erlang port
-	pid      = undefined :: list(),   %% unix process
+   opts     = undefined :: list(),   %% port opts
+   port     = undefined :: any(),    %% erlang port
+   pid      = undefined :: list(),   %% unix process
    longlive = true      :: boolean() %% long live port
 }).
 
@@ -83,17 +83,17 @@ start_link(Name, Cmd, Opts) ->
 init([Script, Opts]) ->
    erlang:process_flag(trap_exit, true),
    {ok, idle, 
-   	#fsm{
-   		script = find_script(Script),
+      #fsm{
+         script = find_script(Script),
          args   = make_args(lists:keyfind(args, 1, Opts)),
-   		opts   = port_opts(Opts) 
-   	}
+         opts   = port_opts(Opts) 
+      }
    }.
 
 free(_, S) ->
-	_ = close_port(S),
-	_ = kill_script(S),
-	ok.
+   _ = close_port(S),
+   _ = kill_script(S),
+   ok.
 
 ioctl(script, #fsm{}=S) ->
    S#fsm.script;
@@ -102,7 +102,7 @@ ioctl(args,   #fsm{}=S) ->
 ioctl({args, X}, #fsm{}=S) ->
    S#fsm{args=make_args(X)};
 ioctl(_, _) ->
-	throw(not_supported).
+   throw(not_supported).
 
 
 %%%------------------------------------------------------------------
@@ -162,11 +162,11 @@ loop({_Port, {exit_status, Code}}, Pipe, #fsm{longlive=true}=S) ->
    };
 
 loop({_Port, {exit_status, Code}}, Pipe, S) ->
-	pipe:a(Pipe, {esh, self(), {eof, Code}}),
+   pipe:a(Pipe, {esh, self(), {eof, Code}}),
    {stop, normal, S};
 
 loop({_Port, {data, Pckt}}, Pipe, S) ->
-	pipe:a(Pipe, {esh, self(), Pckt}),
+   pipe:a(Pipe, {esh, self(), Pckt}),
    {next_state, loop, S};
 
 loop(close, _Pipe, S) ->
@@ -196,11 +196,11 @@ find_script(Script)
 
 find_script(Script)
  when is_binary(Script) ->
- 	binary_to_list(Script);
+   binary_to_list(Script);
 
 find_script(Script)
  when is_list(Script) ->
- 	Script.
+   Script.
 
 %%
 %% make script arguments
@@ -230,19 +230,19 @@ port_opts([], Acc) ->
 %%
 %%
 close_port(#fsm{port=undefined}) ->
-	ok;
+   ok;
 close_port(#fsm{port=Port}) ->
    case erlang:port_info(Port) of
-   	undefined ->
-   		ok;
-   	_ ->
-			erlang:port_close(Port)
-	end.
+      undefined ->
+         ok;
+      _ ->
+         erlang:port_close(Port)
+   end.
 
 %%
 %%
 kill_script(#fsm{pid=undefined}) ->
-	ok;
+   ok;
 kill_script(#fsm{pid=Pid}) ->
    os:cmd("pkill -9 -P " ++ Pid),
    os:cmd("kill -9 " ++ Pid).

@@ -18,18 +18,18 @@
 -module(esh).
 
 -export([
-	spawn/1,
-	spawn/2,
-	spawn/3,
-	spawn_link/1,
-	spawn_link/2,
-	spawn_link/3,
-	close/1,
+   spawn/1,
+   spawn/2,
+   spawn/3,
+   spawn_link/1,
+   spawn_link/2,
+   spawn_link/3,
+   close/1,
 
-	run/1,
-	run/2,
-	run_link/1,
-	run_link/2
+   run/1,
+   run/2,
+   run_link/1,
+   run_link/2
 ]).
 
 -type(script() :: atom() | list() | binary()).
@@ -37,8 +37,12 @@
 %%
 %% spawn shell scripts port and bind it to current process
 %% Options
-%%    nobind - no auto binding, the process is not bound to process
-%%    norun  - do not execute process 
+%%    nobind - do not binding client process to external port
+%%             the esh messages are not delivered to client process
+%%             use pipe library to bind output stream
+%%    norun  - execution of external process delayed until run or run_once
+%%             commands are issued using pipe library
+%%    once   - execute external process once and terminate port
 -spec(spawn/1 :: (script()) -> {ok, any()} | {error, any()}).
 -spec(spawn/2 :: (script(), list()) -> {ok, any()} | {error, any()}).
 -spec(spawn/3 :: (atom(), script(), list()) -> {ok, any()} | {error, any()}).
@@ -47,18 +51,18 @@
 -spec(spawn_link/3 :: (atom(), script(), list()) -> {ok, any()} | {error, any()}).
 
 spawn(Script) ->
-	esh:spawn(Script, []).
+   esh:spawn(Script, []).
 spawn(Script, Opts) ->
-	do_spawn(start, Script, Opts).
+   do_spawn(start, Script, Opts).
 spawn(Name, Script, Opts) ->
-	do_spawn(start, Name, Script, Opts).
+   do_spawn(start, Name, Script, Opts).
 
 spawn_link(Script) ->
-	esh:spawn_link(Script, []).
+   esh:spawn_link(Script, []).
 spawn_link(Script, Opts) ->
-	do_spawn(start_link, Script, Opts).
+   do_spawn(start_link, Script, Opts).
 spawn_link(Name, Script, Opts) ->
-	do_spawn(start_link, Name, Script, Opts).
+   do_spawn(start_link, Name, Script, Opts).
 
 do_spawn(Fun, Script, Opts) ->
    case proplists:get_value(nobind, Opts) of
@@ -73,28 +77,33 @@ do_spawn(Fun, Name, Script, Opts) ->
       true ->
          esh_script:Fun(Name, Script, Opts);
       _    ->
-      	do_bind(esh_script:Fun(Name, Script, Opts), Opts)
+         do_bind(esh_script:Fun(Name, Script, Opts), Opts)
    end.
 
 do_bind({ok, Pid}, Opts) ->
-	pipe:bind(a, Pid, self()),
+   pipe:bind(a, Pid, self()),
    case proplists:get_value(norun, Opts) of
       true ->
          ok;
       _    ->
-	     pipe:send(Pid, run)
+         case proplists:get_value(once, Opts) of
+            true ->
+               pipe:send(Pid, run_once);
+            _    ->
+               pipe:send(Pid, run)
+         end
    end,
-	{ok, Pid};
+   {ok, Pid};
 do_bind(Error, _Opts) ->
-	Error.
+   Error.
 
 %%
 %% close shell script port
 -spec(close/1 :: (pid()) -> ok).
 
 close(Pid) ->
-	pipe:send(Pid, close), 
-	ok.
+   pipe:send(Pid, close), 
+   ok.
 
 
 %%
@@ -110,44 +119,45 @@ close(Pid) ->
 -spec(run_link/2 :: (script(), list()) -> {ok, any()} | {error, any()}).
 
 run(Script) ->
-	run(Script, []).
+   run(Script, []).
 run(Script, Opts) ->
-	do_run(start, Script, Opts).
+   do_run(start, Script, Opts).
 
 run_link(Script) ->
-	run_link(Script, []).
+   run_link(Script, []).
 run_link(Script, Opts) ->
-	do_run(start_link, Script, Opts).
+   do_run(start_link, Script, Opts).
 
 do_run(Fun, Script, Opts) ->
-	case esh_script:Fun(Script, Opts) of
-		{ok, Pid} ->
-			pipe:bind(a, Pid, self()),
-			pipe:send(Pid, run_once),
-			run_loop(
-				Opts,
-				proplists:get_value(timeout, Opts, infinity),
-				proplists:get_value(output,  Opts, fun(X) -> X end),
-				[]
-			);
-		Error ->
-			Error
-	end.
+   case esh_script:Fun(Script, Opts) of
+      {ok, Pid} ->
+         pipe:bind(a, Pid, self()),
+         pipe:send(Pid, run_once),
+         run_loop(
+            Pid, 
+            Opts,
+            proplists:get_value(timeout, Opts, infinity),
+            proplists:get_value(output,  Opts, fun(X) -> X end),
+            []
+         );
+      Error ->
+         Error
+   end.
 
 %%
 %%
-run_loop(Opts, Timeout, Fun, Acc) ->
-	case pipe:recv(Timeout) of
-		{esh, _, {eof, 0}}    ->
-			case proplists:get_value(silent, Opts) of
-				true -> ok;
-				_    -> {ok, lists:reverse(Acc)}
-			end;
-		{esh, _, {eof, Code}} ->
-			case proplists:get_value(verbose, Opts) of
-				true -> {error, lists:reverse(Acc)};
-				_    -> {error, Code}
-			end;
-		{esh, _, Msg} when is_binary(Msg) ->
-			run_loop(Opts, Timeout, Fun, [Fun(Msg) | Acc])
-	end.
+run_loop(Pid, Opts, Timeout, Fun, Acc) ->
+   case pipe:recv(Pid, Timeout, []) of
+      {esh, _, {eof, 0}}    ->
+         case proplists:get_value(silent, Opts) of
+            true -> ok;
+            _    -> {ok, lists:reverse(Acc)}
+         end;
+      {esh, _, {eof, Code}} ->
+         case proplists:get_value(verbose, Opts) of
+            true -> {error, lists:reverse(Acc)};
+            _    -> {error, Code}
+         end;
+      {esh, _, Msg} when is_binary(Msg) ->
+         run_loop(Pid, Opts, Timeout, Fun, [Fun(Msg) | Acc])
+   end.
