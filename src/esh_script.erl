@@ -84,26 +84,19 @@ init([Script, Opts]) ->
    erlang:process_flag(trap_exit, true),
    {ok, idle, 
       #fsm{
-         script = find_script(Script),
-         args   = make_args(lists:keyfind(args, 1, Opts)),
+         script = find_script(hd(Script)),
+         args   = make_args(tl(Script)),
          opts   = port_opts(Opts) 
       }
    }.
 
-free(_, S) ->
-   _ = close_port(S),
-   _ = kill_script(S),
+free(_, State) ->
+   _ = close_port(State),
+   _ = kill_script(State),
    ok.
 
-ioctl(script, #fsm{}=S) ->
-   S#fsm.script;
-ioctl(args,   #fsm{}=S) ->
-   S#fsm.args;
-ioctl({args, X}, #fsm{}=S) ->
-   S#fsm{args=make_args(X)};
 ioctl(_, _) ->
    throw(not_supported).
-
 
 %%%------------------------------------------------------------------
 %%%

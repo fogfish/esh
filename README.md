@@ -19,7 +19,7 @@ The library provides
 ```
 
 ```erlang
-   {ok, _} = esh:run("sh helloworld.sh").
+   {ok, _} = esh:run([sh "helloworld.sh"]).
 ```
 
 ### Execute shell periodically
@@ -32,7 +32,7 @@ The library provides
 ``` 
 
 ```erlang
-	{ok, Pid} = esh:spawn("sh echo.sh").
+	{ok, Pid} = esh:spawn([sh "echo.sh"]).
 
    ...
 
@@ -47,3 +47,19 @@ The library provides
 	{eof, 0} = pipe:recv().
 
 ```
+
+### Execute shell and supervise shell script (redirect output)
+
+```bash
+	#!/bin/sh
+
+	for i in `seq 1 5` ;
+	do
+		sleep 1
+		echo "==> echo $i"
+	done
+```
+
+```erlang
+	{ok, _} = esh:run([sh, "print.sh", ">", "print.log"]).
+``` 

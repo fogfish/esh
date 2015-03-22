@@ -50,18 +50,24 @@
 -spec(spawn_link/2 :: (script(), list()) -> {ok, any()} | {error, any()}).
 -spec(spawn_link/3 :: (atom(), script(), list()) -> {ok, any()} | {error, any()}).
 
-spawn(Script) ->
+spawn(Script)
+ when is_list(Script) ->
    esh:spawn(Script, []).
-spawn(Script, Opts) ->
+spawn(Script, Opts)
+ when is_list(Script) ->
    do_spawn(start, Script, Opts).
-spawn(Name, Script, Opts) ->
+spawn(Name, Script, Opts)
+ when is_list(Script) ->
    do_spawn(start, Name, Script, Opts).
 
-spawn_link(Script) ->
+spawn_link(Script)
+ when is_list(Script) ->
    esh:spawn_link(Script, []).
-spawn_link(Script, Opts) ->
+spawn_link(Script, Opts)
+ when is_list(Script) ->
    do_spawn(start_link, Script, Opts).
-spawn_link(Name, Script, Opts) ->
+spawn_link(Name, Script, Opts)
+ when is_list(Script) ->
    do_spawn(start_link, Name, Script, Opts).
 
 do_spawn(Fun, Script, Opts) ->
@@ -118,14 +124,18 @@ close(Pid) ->
 -spec(run_link/1 :: (script()) -> {ok, any()} | {error, any()}).
 -spec(run_link/2 :: (script(), list()) -> {ok, any()} | {error, any()}).
 
-run(Script) ->
+run(Script)
+ when is_list(Script) ->
    run(Script, []).
-run(Script, Opts) ->
+run(Script, Opts) 
+ when is_list(Script) ->
    do_run(start, Script, Opts).
 
-run_link(Script) ->
+run_link(Script)
+ when is_list(Script) ->
    run_link(Script, []).
-run_link(Script, Opts) ->
+run_link(Script, Opts)
+ when is_list(Script) ->
    do_run(start_link, Script, Opts).
 
 do_run(Fun, Script, Opts) ->
