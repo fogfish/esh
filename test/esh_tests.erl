@@ -21,11 +21,14 @@
 %%
 %%
 spawn_test() ->
-	{ok, Pid} = esh:spawn([sh, "../test/print.sh"]),
-	?assertMatch({esh, Pid, _}, pipe:recv(Pid, 5000, [])),
-	?assertMatch({esh, Pid, _}, pipe:recv(Pid, 5000, [])),
-	?assertMatch({esh, Pid, _}, pipe:recv(Pid, 5000, [])),
-	?assertMatch({esh, Pid, _}, pipe:recv(Pid, 5000, [])),
-	?assertMatch({esh, Pid, _}, pipe:recv(Pid, 5000, [])),
+	{ok, Pid} = esh:spawn([sh, "../test/print.sh"], [fsm]),
+	?assertMatch({esh, Pid, _}, recv(Pid)),
+	?assertMatch({esh, Pid, _}, recv(Pid)),
+	?assertMatch({esh, Pid, _}, recv(Pid)),
+	?assertMatch({esh, Pid, _}, recv(Pid)),
+	?assertMatch({esh, Pid, _}, recv(Pid)),
 	esh:close(Pid).
+
+recv(Pid) ->
+	receive {_, Pid, _} = Msg -> Msg end.
 
