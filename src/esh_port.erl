@@ -122,8 +122,10 @@ spawn(#state{script = Script, args = Args, opts = Opts}=State) ->
 kill(#state{pid=undefined}=State) ->
    State;
 kill(#state{pid=Pid}=State) ->
-   os:cmd("pkill -9 -P " ++ Pid),
-   os:cmd("kill -9 " ++ Pid),
+   os:cmd("pkill -P " ++ Pid),
+   os:cmd("kill " ++ Pid),
+   %os:cmd("pkill -9 -P " ++ Pid),
+   %os:cmd("kill -9 " ++ Pid),
 	State#state{pid=undefined}.
 
 %%
