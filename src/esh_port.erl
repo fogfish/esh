@@ -37,6 +37,7 @@
 
 %% script bootstrap code
 -define(BOOTSTRAP, "echo \"pid $$\"; exec ~s ~s").
+-define(KILL,      "for P in $(pstree -p ~s | grep -o '([0-9]\\+)' | grep -o '[0-9]\\+') ; do pkill -P $P && kill $P ; done").
 
 %% global port options
 -define(PORT(X), [
@@ -122,10 +123,10 @@ spawn(#state{script = Script, args = Args, opts = Opts}=State) ->
 kill(#state{pid=undefined}=State) ->
    State;
 kill(#state{pid=Pid}=State) ->
-   os:cmd("pkill -P " ++ Pid),
-   os:cmd("kill " ++ Pid),
-   %os:cmd("pkill -9 -P " ++ Pid),
-   %os:cmd("kill -9 " ++ Pid),
+   Cmd = lists:flatten(
+      io_lib:format(?KILL, [Pid])
+   ),
+   os:cmd(Cmd),
 	State#state{pid=undefined}.
 
 %%
@@ -141,5 +142,5 @@ send(Msg, #state{port = Port}=State) ->
 -spec(pid/2 :: (list() | binary(), #state{}) -> #state{}).
 
 pid(Pid, State) ->
-	State#state{pid=to_list(Pid)}.
+	State#state{pid=hd(string:tokens(to_list(Pid), "\n"))}.
 
