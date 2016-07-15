@@ -28,7 +28,7 @@
 
 %% internal state
 -record(state, {
-	script = undefined :: any()   %% script/command to execute
+   script = undefined :: any()   %% script/command to execute
   ,args   = undefined :: any()   %% command line arguments
   ,opts   = undefined :: list()  %% port options
   ,port   = undefined :: port()  %% port reference
@@ -52,7 +52,7 @@
 
 %%
 %% create new port
--spec(new/2 :: (list(), list()) -> #state{}).
+-spec new(list(), list()) -> #state{}.
 
 new([Script | Args], Opts) ->
 	#state{
@@ -96,7 +96,7 @@ to_list(X)
 
 %%
 %% free port resources
--spec(free/1 :: (#state{}) -> ok).
+-spec free(#state{}) -> ok.
 
 free(#state{port=undefined}) ->
 	ok;
@@ -105,7 +105,7 @@ free(#state{port=Port}) ->
 
 %%
 %% spawn process associated with port
--spec(spawn/1 :: (#state{}) -> #state{}).
+-spec spawn(#state{}) -> #state{}.
 
 spawn(#state{script = Script, args = Args, opts = Opts}=State) ->
    Shell = os:find_executable(sh),
@@ -118,7 +118,7 @@ spawn(#state{script = Script, args = Args, opts = Opts}=State) ->
 
 %%
 %% kill process associated with port
--spec(kill/1 :: (#state{}) -> #state{}).
+-spec kill(#state{}) -> #state{}.
 
 kill(#state{pid=undefined}=State) ->
    State;
@@ -127,20 +127,20 @@ kill(#state{pid=Pid}=State) ->
       io_lib:format(?KILL, [Pid])
    ),
    os:cmd(Cmd),
-	State#state{pid=undefined}.
+   State#state{pid=undefined}.
 
 %%
 %% send message to port
--spec(send/2 :: (binary(), #state{}) -> #state{}).
+-spec send(binary(), #state{}) -> #state{}.
 
 send(Msg, #state{port = Port}=State) ->
    _ = erlang:port_command(Port, Msg),
-	State.
+   State.
 
 %%
 %% set pid of native process
--spec(pid/2 :: (list() | binary(), #state{}) -> #state{}).
+-spec pid(list() | binary(), #state{}) -> #state{}.
 
 pid(Pid, State) ->
-	State#state{pid=hd(string:tokens(to_list(Pid), "\n"))}.
+   State#state{pid=hd(string:tokens(to_list(Pid), "\n"))}.
 

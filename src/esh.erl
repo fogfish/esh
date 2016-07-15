@@ -46,12 +46,12 @@
 %%             commands are issued using pipe library
 %%    once   - execute external process once and terminate port
 %%    fsm    - use gen_fsm protocol     
--spec(spawn/1 :: (script()) -> {ok, any()} | {error, any()}).
--spec(spawn/2 :: (script(), list()) -> {ok, any()} | {error, any()}).
--spec(spawn/3 :: (atom(), script(), list()) -> {ok, any()} | {error, any()}).
--spec(spawn_link/1 :: (script()) -> {ok, any()} | {error, any()}).
--spec(spawn_link/2 :: (script(), list()) -> {ok, any()} | {error, any()}).
--spec(spawn_link/3 :: (atom(), script(), list()) -> {ok, any()} | {error, any()}).
+-spec spawn(script()) -> {ok, any()} | {error, any()}.
+-spec spawn(script(), list()) -> {ok, any()} | {error, any()}.
+-spec spawn(atom(), script(), list()) -> {ok, any()} | {error, any()}.
+-spec spawn_link(script()) -> {ok, any()} | {error, any()}.
+-spec spawn_link(script(), list()) -> {ok, any()} | {error, any()}.
+-spec spawn_link(atom(), script(), list()) -> {ok, any()} | {error, any()}.
 
 spawn(Script)
  when is_list(Script) ->
@@ -130,7 +130,7 @@ do_bind(_, Error, _Opts) ->
 
 %%
 %% close shell script port
--spec(close/1 :: (pid()) -> ok).
+-spec close(pid()) -> ok.
 
 close(Pid) ->
    erlang:send(Pid, close), 
@@ -144,10 +144,10 @@ close(Pid) ->
 %%    {output,  function()}- output mapper function (default identity)
 %%    silent               - return status code only
 %%    verbose              - return script output 
--spec(run/1 :: (script()) -> {ok, any()} | {error, any()}).
--spec(run/2 :: (script(), list()) -> {ok, any()} | {error, any()}).
--spec(run_link/1 :: (script()) -> {ok, any()} | {error, any()}).
--spec(run_link/2 :: (script(), list()) -> {ok, any()} | {error, any()}).
+-spec run(script()) -> {ok, any()} | {error, any()}.
+-spec run(script(), list()) -> {ok, any()} | {error, any()}.
+-spec run_link(script()) -> {ok, any()} | {error, any()}.
+-spec run_link(script(), list()) -> {ok, any()} | {error, any()}.
 
 run(Script)
  when is_list(Script) ->
@@ -197,3 +197,4 @@ run_loop(Pid, Opts, Timeout, Fun, Acc) ->
       {esh, _, Msg} when is_binary(Msg) ->
          run_loop(Pid, Opts, Timeout, Fun, [Fun(Msg) | Acc])
    end.
+
