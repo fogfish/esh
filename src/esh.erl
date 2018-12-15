@@ -102,7 +102,7 @@ run_link(Script, Opts)
 do_run(Fun, Script, Opts) ->
    case esh_pipe:Fun(Script, Opts) of
       {ok, Pid} ->
-         pipe:bind(a, Pid, self()),
+         pipe:bind(b, Pid, self()),
          pipe:send(Pid, run_once),
          run_loop(
             Pid, 
