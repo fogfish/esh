@@ -18,21 +18,21 @@
 -module(esh_port).
 
 -export([
-	new/2
-  ,free/1
-  ,spawn/1
-  ,kill/1
-  ,send/2
-  ,pid/2
+   new/2
+,  free/1
+,  spawn/1
+,  kill/1
+,  send/2
+,  pid/2
 ]).
 
 %% internal state
 -record(state, {
    script = undefined :: any()   %% script/command to execute
-  ,args   = undefined :: any()   %% command line arguments
-  ,opts   = undefined :: list()  %% port options
-  ,port   = undefined :: port()  %% port reference
-  ,pid    = undefined :: any()   %% native process reference
+,  args   = undefined :: any()   %% command line arguments
+,  opts   = undefined :: list()  %% port options
+,  port   = undefined :: port()  %% port reference
+,  pid    = undefined :: any()   %% native process reference
 }).
 
 %% script bootstrap code

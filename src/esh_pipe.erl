@@ -89,7 +89,8 @@ idle(run, _Pipe, #fsm{port = Port}=State) ->
 idle(run_once, _Pipe, #fsm{port = Port}=State) ->
    {next_state, boot, 
 		State#fsm{
-			port = esh_port:spawn(Port), longlive = false
+			port = esh_port:spawn(Port)
+      ,  longlive = false
 		}
 	};
 
@@ -100,13 +101,13 @@ idle(Msg, _Pipe, #fsm{port = Port}=State)
 			port = esh_port:send(Msg, esh_port:spawn(Port))
 		}
 	};
-   
-idle(close, _Pipe, State) ->
-   {stop, normal, State};
 
 idle({'EXIT', _, _}, _Pipe, State) ->
    %% ignore port exit command
    {next_state, idle, State};
+
+idle({sidedown, _, _}, _, State) ->
+   {stop, normal, State};
 
 idle(Msg, _Pipe, State) ->
    error_logger:warning_msg("esh [idle]: unknown message ~p~n", [Msg]),
@@ -122,7 +123,7 @@ boot({_Port, {data, <<$p, $i, $d, $ , Pid/binary>>}}, _Pipe, #fsm{port = Port}=S
 		}
 	};
 
-boot(close, _Pipe, State) ->
+boot({sidedown, _, _}, _, State) ->
    {stop, normal, State};
 
 boot(Msg, _Pipe, S) ->
@@ -141,11 +142,9 @@ loop({_Port, {exit_status, Code}}, Pipe, State) ->
    {stop, normal, State};
 
 loop({_Port, {data, Pckt}}, Pipe, State) ->
-   pipe:b(Pipe, {esh, self(), Pckt}),
+   %% Note: out-of-bound messages send to next element
+   pipe:a(Pipe, {esh, self(), Pckt}),
    {next_state, loop, State};
-
-loop(close, _Pipe, State) ->
-   {stop, normal, State};
 
 loop(Msg, _Pipe, #fsm{port = Port}=State)
  when is_binary(Msg) ->
@@ -154,6 +153,9 @@ loop(Msg, _Pipe, #fsm{port = Port}=State)
 			port = esh_port:send(Msg, Port)
 		}
 	};
+
+loop({sidedown, _, _}, _, State) ->
+   {stop, normal, State};
 
 loop(Msg, _Pipe, State) ->
    error_logger:warning_msg("esh [loop]: unknown message ~p~n", [Msg]),

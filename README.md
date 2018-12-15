@@ -1,13 +1,11 @@
 # Erlang to Shell Script bindings
 
 The library is a simple wrapper over Erlang port interface. The communication with shell 
-script is built on pipe protocol. The library wraps port to process that perform port
-supervision and proxies pipe protocol. The major library objective is reliability and fault 
-tolerance of shell scripts execution.
+script is built on [pipe](https://github.com/fogfish/pipe) protocol. The library wraps port to process that perform port supervision and proxies pipe protocol. The major library objective is reliability and fault tolerance of shell scripts execution.
 
 The library provides
- * run / run_link      - executes shell script and receive its output
- * spawn / spawn_link  - instantiate pipe object to shell script
+ * `run` / `run_link`  - executes shell script and receive its output
+ * `spawn` / `spawn_link` - instantiate pipe object to shell script
 
 ## Usage
 
@@ -19,7 +17,7 @@ The library provides
 ```
 
 ```erlang
-   {ok, _} = esh:run([sh "helloworld.sh"]).
+   {ok, _} = esh:run([sh, "helloworld.sh"]).
 ```
 
 ### Execute shell periodically
@@ -32,7 +30,7 @@ The library provides
 ``` 
 
 ```erlang
-	{ok, Pid} = esh:spawn([sh "echo.sh"]).
+	{ok, Pid} = esh:spawn([sh, "echo.sh"]).
 
    ...
 
